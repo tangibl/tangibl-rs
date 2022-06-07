@@ -1,8 +1,9 @@
+mod parser;
 mod tangibl;
 mod tokens;
 mod visitor;
 
-pub mod nodes;
+pub mod ast;
 pub mod visitors;
 
 pub use tangibl::*;
