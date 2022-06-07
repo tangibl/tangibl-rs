@@ -1,0 +1,14 @@
+[package]
+name = "tangibl"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+topcodes = { version = "*", path = "../topcodes-rs" }
+serde = { version = "1.0.137", features = [] }
+serde_json = "1.0.81"
+
+[dev-dependencies]
+enum-iterator = "1.1.1"
