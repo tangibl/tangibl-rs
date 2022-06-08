@@ -5,22 +5,16 @@ use crate::ast::{
 use std::collections::VecDeque;
 use topcodes::TopCode;
 
-pub struct Tangibl {}
+pub fn parse(topcodes: Vec<TopCode>) -> Option<()> {
+    None
+}
 
-impl Tangibl {
-    /// TODO
-    pub fn parse(topcodes: Vec<TopCode>) -> Option<()> {
-        None
-    }
+pub fn start() -> TangiblStartBuilder {
+    TangiblStartBuilder::default()
+}
 
-    /// TODO
-    pub fn start() -> TangiblStartBuilder {
-        TangiblStartBuilder::default()
-    }
-
-    pub fn flow() -> TangiblFlowBuilder {
-        TangiblFlowBuilder::default()
-    }
+pub fn flow() -> TangiblFlowBuilder {
+    TangiblFlowBuilder::default()
 }
 
 #[derive(Default, Debug)]

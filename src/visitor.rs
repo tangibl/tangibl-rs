@@ -1,6 +1,7 @@
 use crate::ast::{BooleanMethod, Command, Conditional, Flow, IntegerMethod, Start};
 
-pub(crate) trait Visitor {
+/// The trait for defining a struct which can walk a Tangibl AST.
+pub trait Visitor {
     type Result;
 
     fn visit_start(&mut self, start: &Start) -> Self::Result;

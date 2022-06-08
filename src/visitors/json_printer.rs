@@ -15,6 +15,12 @@ const CONDITION: &str = "condition";
 const BODY: &str = "body";
 const VALUE: &str = "value";
 
+/// The JsonPrinter can be used to produce a tree for communicating over a C dynamic library
+/// bridge. This can be ignored for Rust development, but will be useful for interop between
+/// languages.
+///
+/// The printer implements the visitor pattern on the internal representation of the AST. Since
+/// Rust uses algebraic enum types, we don't need to implement structs for each token.
 pub struct JsonPrinter {}
 
 impl JsonPrinter {
@@ -139,5 +145,39 @@ impl Visitor for JsonPrinter {
             }
         }
         node
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{flow, start};
+
+    #[test]
+    fn it_can_print_a_complex_tree() {
+        let ast = start()
+            .with_command(Command::Shoot)
+            .with_conditional(
+                ConditionalKind::Blocked,
+                flow().with_command(Command::TurnLeft).build(),
+            )
+            .with_command(Command::MoveBackwards)
+            .with_boolean_method(
+                BooleanMethodKind::While,
+                Some(Condition::IsBlocked),
+                flow().with_command(Command::TurnRight).build(),
+            )
+            .with_command(Command::MoveForwards)
+            .with_integer_method(
+                IntegerMethodKind::Repeat,
+                Some(Value::Three),
+                flow().with_command(Command::TurnLeft).build(),
+            )
+            .with_command(Command::MoveForwards)
+            .build();
+        let mut json_printer = JsonPrinter::new();
+
+        let expected = r#"{"name":"start","next":{"name":"shoot","next":{"alternate":{"name":"turnLeft"},"name":"blocked","next":{"name":"moveBackwards","next":{"body":{"name":"turnRight"},"condition":"isBlocked","name":"while","next":{"name":"moveForwards","next":{"body":{"name":"turnLeft"},"name":"repeat","next":{"name":"moveForwards"},"value":"3"}}}}}}}"#;
+        assert_eq!(expected, json_printer.print(&ast));
     }
 }
