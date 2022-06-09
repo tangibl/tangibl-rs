@@ -1,15 +1,15 @@
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Start {
     pub next: Option<Flow>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Condition {
     IsBlocked,
     IsPathClear,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Value {
     One,
     Two,
@@ -22,7 +22,7 @@ pub enum Value {
     Infinity,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Command {
     MoveBackwards,
     MoveForwards,
@@ -31,43 +31,43 @@ pub enum Command {
     TurnRight,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BooleanMethodKind {
     While,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BooleanMethod {
     pub kind: BooleanMethodKind,
     pub body: Option<Box<Flow>>,
     pub condition: Option<Condition>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IntegerMethodKind {
     Repeat,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IntegerMethod {
     pub kind: IntegerMethodKind,
     pub body: Option<Box<Flow>>,
     pub value: Option<Value>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConditionalKind {
     Blocked,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Conditional {
     pub kind: ConditionalKind,
     /// The false path
     pub alternate: Option<Box<Flow>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FlowKind {
     Command(Command),
     BooleanMethod(BooleanMethod),
@@ -75,7 +75,7 @@ pub enum FlowKind {
     Conditional(Conditional),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Flow {
     pub kind: FlowKind,
     pub next: Option<Box<Flow>>,

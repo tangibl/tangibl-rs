@@ -3,7 +3,7 @@ use enum_iterator::Sequence;
 use num_enum::TryFromPrimitive;
 
 #[cfg_attr(test, derive(Sequence))]
-#[derive(Clone, Copy, Debug, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u32)]
 pub enum TokenCode {
     Start = 61,
