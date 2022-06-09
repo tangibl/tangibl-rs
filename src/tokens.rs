@@ -44,7 +44,7 @@ impl TokenCode {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Token {
     pub code: TokenCode,
     pub diameter: f64,
@@ -75,6 +75,17 @@ impl Token {
             | TokenCode::TurnRight
             | TokenCode::Repeat
             | TokenCode::While => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_command(&self) -> bool {
+        match self.code {
+            TokenCode::Shoot
+            | TokenCode::TurnLeft
+            | TokenCode::TurnRight
+            | TokenCode::MoveForwards
+            | TokenCode::MoveBackwards => true,
             _ => false,
         }
     }
