@@ -36,6 +36,9 @@ pub enum TokenCode {
     // Conditions
     IsBlocked = 157,
     IsPathClear = 167,
+
+    // An undefined token value
+    Undefined = 0,
 }
 
 impl TokenCode {
@@ -113,6 +116,11 @@ impl Token {
             _ => false,
         }
     }
+
+    /// The ratio of the current token to the expected diameter.
+    pub fn ratio(&self, diameter: f64) -> f64 {
+        self.diameter / diameter
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +133,7 @@ mod tests {
     fn tokencode_enum_values_are_valid_topcodes() {
         let tokens = all::<TokenCode>().collect::<Vec<_>>();
         for token in tokens {
-            assert!(TopCode::checksum(token.value()));
+            assert!(TopCode::checksum(token.value()) || token.value() == 0);
         }
     }
 }
