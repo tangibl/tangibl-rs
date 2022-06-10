@@ -27,7 +27,7 @@ const TOPCODE_CENTER_X: f64 = 50.0;
 const TOPCODE_CENTER_Y: f64 = 38.0;
 /// The maximum displacement squared for a Token to be considered within an acceptable range of the previous
 /// token.
-const DISPLACEMENT_SQUARED_TOLERANCE: f64 = TOPCODE_RADIUS * TOPCODE_RADIUS;
+const DISPLACEMENT_SQUARED_TOLERANCE: f64 = (TOPCODE_RADIUS * 1.5) * (TOPCODE_RADIUS * 1.5);
 /// The maximum angle deviation, in radians, from the expected angle of the previous token.
 const ANGLE_TOLERANCE: f64 = PI / 5.0;
 const TWO_PI: f64 = PI * 2.0;
@@ -43,21 +43,21 @@ const CONDITIONAL_INTERSECTION: f64 = 65.0;
 // https://github.com/rust-Lang/rust/issues/57241
 lazy_static! {
     static ref TRUE_HYPOTENUSE: f64 = (TOPCODE_CENTER_X.powi(2) + TOPCODE_CENTER_Y.powi(2)).sqrt();
-    static ref TRUE_TOKEN_X: f64 = *TRUE_HYPOTENUSE * (PI / 4.0).cos()
-        - (TOPCODE_CENTER_Y / *TRUE_HYPOTENUSE).asin()
+    static ref TRUE_TOKEN_X: f64 = *TRUE_HYPOTENUSE
+        * ((PI / 4.0) - (TOPCODE_CENTER_Y / *TRUE_HYPOTENUSE).asin()).cos()
         + CONDITIONAL_INTERSECTION
         - TOPCODE_CENTER_X;
-    static ref TRUE_TOKEN_Y: f64 = *TRUE_HYPOTENUSE * (PI / 4.0).sin()
-        - (TOPCODE_CENTER_Y / *TRUE_HYPOTENUSE).asin()
+    static ref TRUE_TOKEN_Y: f64 = *TRUE_HYPOTENUSE
+        * ((PI / 4.0) - (TOPCODE_CENTER_Y / *TRUE_HYPOTENUSE).asin()).sin()
         + TOPCODE_CENTER_Y;
     static ref FALSE_HYPOTENUSE: f64 =
         (TOPCODE_CENTER_X.powi(2) + (TOKEN_SIZE - TOPCODE_CENTER_Y).powi(2)).sqrt();
-    static ref FALSE_TOKEN_X: f64 = *FALSE_HYPOTENUSE * (PI / 4.0).cos()
-        - (TOPCODE_CENTER_X / *FALSE_HYPOTENUSE).asin()
+    static ref FALSE_TOKEN_X: f64 = *FALSE_HYPOTENUSE
+        * ((PI / 4.0) - (TOPCODE_CENTER_X / *FALSE_HYPOTENUSE).asin()).cos()
         + CONDITIONAL_INTERSECTION
         - TOPCODE_CENTER_X;
-    static ref FALSE_TOKEN_Y: f64 = *FALSE_HYPOTENUSE * (PI / 4.0).sin()
-        - (TOPCODE_CENTER_X / *FALSE_HYPOTENUSE).asin()
+    static ref FALSE_TOKEN_Y: f64 = *FALSE_HYPOTENUSE
+        * ((PI / 4.0) - (TOPCODE_CENTER_X / *FALSE_HYPOTENUSE).asin()).sin()
         + (TOKEN_SIZE - TOPCODE_CENTER_Y);
 }
 
@@ -88,6 +88,15 @@ impl Parser {
     }
 
     pub fn parse(&self) -> Option<Start> {
+        log::debug!(
+            r#"Starting parser with constants: {{
+  DISPLACEMENT_SQUARED_TOLERANCE: {},
+  ANGLE_TOLERANCE: {}
+}}"#,
+            DISPLACEMENT_SQUARED_TOLERANCE,
+            ANGLE_TOLERANCE,
+        );
+
         let start_token = self
             .tokens
             .iter()
@@ -106,6 +115,7 @@ impl Parser {
     }
 
     fn parse_flow(&self, current_token: Option<&Token>) -> Option<Flow> {
+        log::debug!("Trying to parse flow from token: {:?}", current_token);
         current_token.map(|token| match token.code {
             TokenCode::Shoot
             | TokenCode::TurnLeft
@@ -122,6 +132,10 @@ impl Parser {
     fn parse_command(&self, current_token: &Token) -> Flow {
         let command = match current_token.code {
             TokenCode::Shoot => Command::Shoot,
+            TokenCode::TurnLeft => Command::TurnLeft,
+            TokenCode::TurnRight => Command::TurnRight,
+            TokenCode::MoveForwards => Command::MoveForwards,
+            TokenCode::MoveBackwards => Command::MoveBackwards,
             _ => panic!("Received a non-command token during parse_command"),
         };
         Flow {
@@ -139,12 +153,17 @@ impl Parser {
         };
         let true_token = self.find_true_token(current_token);
         let false_token = self.find_false_token(current_token);
+        log::debug!(
+            "parse_conditional {{ true_token: {:?}, false_token: {:?} }}",
+            true_token,
+            false_token
+        );
         Flow {
             kind: FlowKind::Conditional(Conditional {
                 kind: conditional_kind,
-                alternate: self.parse_flow(true_token).map(|flow| Box::new(flow)),
+                alternate: self.parse_flow(false_token).map(|flow| Box::new(flow)),
             }),
-            next: self.parse_flow(false_token).map(|flow| Box::new(flow)),
+            next: self.parse_flow(true_token).map(|flow| Box::new(flow)),
         }
     }
 
@@ -232,15 +251,7 @@ impl Parser {
                 continue;
             }
 
-            let delta_displacement_squared = (candidate.x - x).powi(2) + (candidate.y - y).powi(2);
-            let mut delta_angle = (candidate.orientation - token.orientation) % TWO_PI;
-            if delta_angle < 0.0 {
-                delta_angle += TWO_PI;
-            }
-            delta_angle = f64::min(delta_angle, TWO_PI - delta_angle);
-            if delta_displacement_squared < DISPLACEMENT_SQUARED_TOLERANCE
-                && delta_angle < ANGLE_TOLERANCE
-            {
+            if Self::within_threshold(candidate, x, y, token.orientation) {
                 return Some(candidate);
             }
         }
@@ -262,15 +273,7 @@ impl Parser {
                 continue;
             }
 
-            let delta_displacement_squared = (candidate.x - x).powi(2) + (candidate.y - y).powi(2);
-            let mut delta_angle = (candidate.orientation - angle) % TWO_PI;
-            if delta_angle < 0.0 {
-                delta_angle += TWO_PI;
-            }
-            delta_angle = f64::min(delta_angle, TWO_PI - delta_angle);
-            if delta_displacement_squared < DISPLACEMENT_SQUARED_TOLERANCE
-                && delta_angle < ANGLE_TOLERANCE
-            {
+            if Self::within_threshold(candidate, x, y, angle) {
                 return Some(candidate);
             }
         }
@@ -286,29 +289,41 @@ impl Parser {
         let y = token.y + (distance * token.orientation.sin());
 
         for candidate in &self.tokens {
-            if candidate != token && candidate.is_flow() {
-                if let Some(parent) = parent {
-                    if parent == candidate {
-                        continue;
-                    }
-                }
+            if candidate == token || !candidate.is_flow() {
+                continue;
+            }
 
-                let delta_displacement_squared =
-                    (candidate.x - x).powi(2) + (candidate.y - y).powi(2);
-                let mut delta_angle = (candidate.orientation - token.orientation) % TWO_PI;
-                delta_angle = f64::min(delta_angle, TWO_PI - delta_angle);
-                if delta_displacement_squared < DISPLACEMENT_SQUARED_TOLERANCE
-                    && delta_angle < ANGLE_TOLERANCE
-                {
-                    return Some(candidate);
+            if let Some(parent) = parent {
+                if parent == candidate {
+                    continue;
                 }
+            }
+
+            if Self::within_threshold(candidate, x, y, token.orientation) {
+                return Some(candidate);
             }
         }
 
         None
     }
 
+    fn within_threshold(candidate: &Token, x: f64, y: f64, angle: f64) -> bool {
+        let delta_displacement_squared = (candidate.x - x).powi(2) + (candidate.y - y).powi(2);
+        let mut delta_angle = (candidate.orientation - angle) % TWO_PI;
+        delta_angle = f64::min(delta_angle, TWO_PI - delta_angle);
+        log::debug!(
+            "within_threshold: {{candidate: {:?}, delta_displacement_squared: {}, delta_angle: {}, evaluation: {}}}",
+            candidate,
+            delta_displacement_squared,
+            delta_angle,
+            delta_displacement_squared < DISPLACEMENT_SQUARED_TOLERANCE && delta_angle < ANGLE_TOLERANCE
+        );
+        return delta_displacement_squared <= DISPLACEMENT_SQUARED_TOLERANCE
+            && delta_angle <= ANGLE_TOLERANCE;
+    }
+
     fn find_true_token(&self, token: &Token) -> Option<&Token> {
+        log::debug!("Trying to find true token...");
         let ratio = token.ratio(TOPCODE_DIAMETER);
         let angle = token.orientation + PI / 4.0; // 45 degrees counter-clockwise (with y-axis flipped)
         let cos_angle = token.orientation.cos();
@@ -321,31 +336,26 @@ impl Parser {
     }
 
     fn find_false_token(&self, token: &Token) -> Option<&Token> {
+        log::debug!("Trying to find false token...");
         let ratio = token.ratio(TOPCODE_DIAMETER);
         let angle = token.orientation - PI / 4.0; // 45 degrees clockwise (with y-axis flipped)
         let cos_angle = token.orientation.cos();
         let sin_angle = token.orientation.sin();
         let x = token.x + (*FALSE_TOKEN_X * cos_angle - *FALSE_TOKEN_Y * sin_angle) * ratio;
-        let y = token.y + (*FALSE_TOKEN_Y * sin_angle + *FALSE_TOKEN_Y * cos_angle) * ratio;
+        let y = token.y + (*FALSE_TOKEN_X * sin_angle + *FALSE_TOKEN_Y * cos_angle) * ratio;
         // Create an artificial to find the next flow token
         let pseudo_token = Token::new(TokenCode::Undefined, token.diameter, angle, x, y);
         return self.find_adjacent_token(&pseudo_token, Some(token));
-    }
-
-    fn get_angle(mut angle: f64) -> f64 {
-        while angle > TWO_PI {
-            angle -= TWO_PI;
-        }
-        while angle < 0.0 {
-            angle += TWO_PI;
-        }
-        return angle;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn init() {
+        let _ = env_logger::builder().is_test(true).try_init();
+    }
 
     #[test]
     fn it_can_parse_a_start_token() {
@@ -369,6 +379,84 @@ mod tests {
                 })
             }),
             result
+        );
+    }
+
+    #[test]
+    fn it_can_parse_a_complex_tree() {
+        init();
+        // This is essentially a fuzz test as there are a few missing unit tests above. This covers
+        // quite a complex (although semantically nonsense) Tangibl AST.
+        let topcodes = vec![
+            TopCode::mock(61, 12.375, -5.244043121761424, 237.5, 165.16666666666666),
+            TopCode::mock(79, 14.30625, -5.244043121761424, 336.3333333333333, 363.5),
+            TopCode::mock(31, 12.15, -5.244043121761424, 431.0, 562.0),
+            TopCode::mock(47, 12.2625, -2.827433388230814, 937.8333333333334, 377.5),
+            TopCode::mock(91, 12.94375, -1.232470964100611, 1140.5, 436.0),
+            TopCode::mock(115, 14.175, -1.2808031587712234, 1345.5, 519.5),
+            TopCode::mock(59, 12.70625, -1.2808031587712234, 1052.5, 641.6666666666666),
+            TopCode::mock(55, 13.9125, -5.920693847149995, 801.5, 754.8333333333334),
+            TopCode::mock(91, 13.9125, -5.969026041820606, 999.0, 838.0),
+            TopCode::mock(167, 12.46875, -4.4223958123610165, 134.5, 912.8333333333334),
+            TopCode::mock(87, 12.15, -5.969026041820606, 1201.6666666666667, 916.0),
+            TopCode::mock(155, 13.125, -4.4223958123610165, 336.8333333333333, 979.5),
+            TopCode::mock(47, 12.35, -5.969026041820606, 538.0, 1031.5),
+            TopCode::mock(117, 13.25, -5.969026041820606, 917.6666666666666, 1035.5),
+            TopCode::mock(87, 11.8125, -4.47, 275.33, 1177.33),
+        ];
+
+        let parser = Parser::new(&topcodes);
+
+        assert_eq!(
+            Some(Start {
+                next: Some(Flow {
+                    kind: FlowKind::Command(Command::TurnLeft),
+                    next: Some(Box::new(Flow {
+                        kind: FlowKind::Conditional(Conditional {
+                            kind: ConditionalKind::Blocked,
+                            alternate: Some(Box::new(Flow {
+                                kind: FlowKind::BooleanMethod(BooleanMethod {
+                                    kind: BooleanMethodKind::While,
+                                    condition: Some(Condition::IsPathClear),
+                                    body: Some(Box::new(Flow {
+                                        kind: FlowKind::Command(Command::TurnRight),
+                                        next: None
+                                    }))
+                                }),
+                                next: None
+                            }))
+                        }),
+                        next: Some(Box::new(Flow {
+                            kind: FlowKind::Command(Command::MoveForwards),
+                            next: Some(Box::new(Flow {
+                                kind: FlowKind::IntegerMethod(IntegerMethod {
+                                    kind: IntegerMethodKind::Repeat,
+                                    body: Some(Box::new(Flow {
+                                        kind: FlowKind::Command(Command::Shoot),
+                                        next: Some(Box::new(Flow {
+                                            kind: FlowKind::IntegerMethod(IntegerMethod {
+                                                kind: IntegerMethodKind::Repeat,
+                                                body: Some(Box::new(Flow {
+                                                    kind: FlowKind::Command(Command::MoveBackwards),
+                                                    next: None,
+                                                })),
+                                                value: Some(Value::Five)
+                                            }),
+                                            next: None
+                                        })),
+                                    })),
+                                    value: Some(Value::Six)
+                                }),
+                                next: Some(Box::new(Flow {
+                                    kind: FlowKind::Command(Command::TurnRight),
+                                    next: None
+                                }))
+                            }))
+                        }))
+                    }))
+                })
+            }),
+            parser.parse()
         );
     }
 }
