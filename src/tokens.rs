@@ -69,52 +69,49 @@ impl Token {
 
     /// Is part of the regular flow of the program. In other words, has a previous and next token.
     pub fn is_flow(&self) -> bool {
-        match self.code {
+        matches!(
+            self.code,
             TokenCode::Blocked
-            | TokenCode::MoveBackwards
-            | TokenCode::MoveForwards
-            | TokenCode::Shoot
-            | TokenCode::TurnLeft
-            | TokenCode::TurnRight
-            | TokenCode::Repeat
-            | TokenCode::While => true,
-            _ => false,
-        }
+                | TokenCode::MoveBackwards
+                | TokenCode::MoveForwards
+                | TokenCode::Shoot
+                | TokenCode::TurnLeft
+                | TokenCode::TurnRight
+                | TokenCode::Repeat
+                | TokenCode::While
+        )
     }
 
     pub fn is_command(&self) -> bool {
-        match self.code {
+        matches!(
+            self.code,
             TokenCode::Shoot
-            | TokenCode::TurnLeft
-            | TokenCode::TurnRight
-            | TokenCode::MoveForwards
-            | TokenCode::MoveBackwards => true,
-            _ => false,
-        }
+                | TokenCode::TurnLeft
+                | TokenCode::TurnRight
+                | TokenCode::MoveForwards
+                | TokenCode::MoveBackwards
+        )
     }
 
     /// Represents a positive integer value.
     pub fn is_value(&self) -> bool {
-        match self.code {
+        matches!(
+            self.code,
             TokenCode::Value1
-            | TokenCode::Value2
-            | TokenCode::Value3
-            | TokenCode::Value4
-            | TokenCode::Value5
-            | TokenCode::Value6
-            | TokenCode::Value7
-            | TokenCode::Value8
-            | TokenCode::ValueInfinite => true,
-            _ => false,
-        }
+                | TokenCode::Value2
+                | TokenCode::Value3
+                | TokenCode::Value4
+                | TokenCode::Value5
+                | TokenCode::Value6
+                | TokenCode::Value7
+                | TokenCode::Value8
+                | TokenCode::ValueInfinite
+        )
     }
 
     /// A method with a condition.
     pub fn is_condition(&self) -> bool {
-        match self.code {
-            TokenCode::IsBlocked | TokenCode::IsPathClear => true,
-            _ => false,
-        }
+        matches!(self.code, TokenCode::IsBlocked | TokenCode::IsPathClear)
     }
 
     /// The ratio of the current token to the expected diameter.

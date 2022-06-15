@@ -33,6 +33,12 @@ impl JsonPrinter {
     }
 }
 
+impl Default for JsonPrinter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Visitor for JsonPrinter {
     type Result = JsValue;
 
@@ -131,10 +137,10 @@ impl Visitor for JsonPrinter {
 
     fn visit_flow(&mut self, flow: &Flow) -> Self::Result {
         let mut node = match &flow.kind {
-            FlowKind::Command(command) => self.visit_command(&command),
-            FlowKind::BooleanMethod(boolean_method) => self.visit_boolean_method(&boolean_method),
-            FlowKind::IntegerMethod(integer_method) => self.visit_integer_method(&integer_method),
-            FlowKind::Conditional(conditional) => self.visit_conditional(&conditional),
+            FlowKind::Command(command) => self.visit_command(command),
+            FlowKind::BooleanMethod(boolean_method) => self.visit_boolean_method(boolean_method),
+            FlowKind::IntegerMethod(integer_method) => self.visit_integer_method(integer_method),
+            FlowKind::Conditional(conditional) => self.visit_conditional(conditional),
         };
         if let Some(next_flow) = &flow.next {
             if let Some(node_mut) = node.as_object_mut() {

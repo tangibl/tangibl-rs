@@ -126,7 +126,7 @@ impl Parser {
             .iter()
             .find(|token| token.code == TokenCode::Start);
 
-        return self.parse_start(start_token);
+        self.parse_start(start_token)
     }
 
     fn parse_start(&self, start_token: Option<&Token>) -> Option<Start> {
@@ -167,7 +167,7 @@ impl Parser {
             kind: FlowKind::Command(command),
             next: self
                 .parse_flow(self.find_adjacent_token(current_token, None))
-                .map(|flow| Box::new(flow)),
+                .map(Box::new),
         }
     }
 
@@ -186,9 +186,9 @@ impl Parser {
         Flow {
             kind: FlowKind::Conditional(Conditional {
                 kind: conditional_kind,
-                alternate: self.parse_flow(false_token).map(|flow| Box::new(flow)),
+                alternate: self.parse_flow(false_token).map(Box::new),
             }),
-            next: self.parse_flow(true_token).map(|flow| Box::new(flow)),
+            next: self.parse_flow(true_token).map(Box::new),
         }
     }
 
@@ -204,19 +204,19 @@ impl Parser {
                 kind: boolean_method_kind,
                 body: self
                     .parse_flow(self.find_method_body_token(current_token))
-                    .map(|flow| Box::new(flow)),
+                    .map(Box::new),
                 condition: self.parse_condition(
                     self.find_method_parameter_token(current_token, &Token::is_condition),
                 ),
             }),
             next: self
                 .parse_flow(self.find_adjacent_token(current_token, None))
-                .map(|flow| Box::new(flow)),
+                .map(Box::new),
         }
     }
 
     fn parse_condition(&self, candidate: Option<&Token>) -> Option<Condition> {
-        candidate.map_or(None, |token| match token.code {
+        candidate.and_then(|token| match token.code {
             TokenCode::IsBlocked => Some(Condition::IsBlocked),
             TokenCode::IsPathClear => Some(Condition::IsPathClear),
             _ => None,
@@ -235,18 +235,18 @@ impl Parser {
                 kind: integer_method_kind,
                 body: self
                     .parse_flow(self.find_method_body_token(current_token))
-                    .map(|flow| Box::new(flow)),
+                    .map(Box::new),
                 value: self
                     .parse_value(self.find_method_parameter_token(current_token, &Token::is_value)),
             }),
             next: self
                 .parse_flow(self.find_adjacent_token(current_token, None))
-                .map(|flow| Box::new(flow)),
+                .map(Box::new),
         }
     }
 
     fn parse_value(&self, candidate: Option<&Token>) -> Option<Value> {
-        candidate.map_or(None, |token| match token.code {
+        candidate.and_then(|token| match token.code {
             TokenCode::Value1 => Some(Value::One),
             TokenCode::Value2 => Some(Value::Two),
             TokenCode::Value3 => Some(Value::Three),
@@ -350,8 +350,8 @@ impl Parser {
             delta_angle,
             delta_displacement_squared < DISPLACEMENT_SQUARED_TOLERANCE && delta_angle < ANGLE_TOLERANCE
         );
-        return delta_displacement_squared <= DISPLACEMENT_SQUARED_TOLERANCE
-            && delta_angle <= ANGLE_TOLERANCE;
+        delta_displacement_squared <= DISPLACEMENT_SQUARED_TOLERANCE
+            && delta_angle <= ANGLE_TOLERANCE
     }
 
     fn find_true_token(&self, token: &Token) -> Option<&Token> {
@@ -365,7 +365,7 @@ impl Parser {
         // Create an artificial to find the next flow token
         let pseudo_token = Token::new(TokenCode::Undefined, token.diameter, angle, x, y);
         log::debug!("Pseudo true token: {:?}", pseudo_token);
-        return self.find_adjacent_token(&pseudo_token, Some(token));
+        self.find_adjacent_token(&pseudo_token, Some(token))
     }
 
     fn find_false_token(&self, token: &Token) -> Option<&Token> {
@@ -379,7 +379,7 @@ impl Parser {
         // Create an artificial to find the next flow token
         let pseudo_token = Token::new(TokenCode::Undefined, token.diameter, angle, x, y);
         log::debug!("Pseudo false token: {:?}", pseudo_token);
-        return self.find_adjacent_token(&pseudo_token, Some(token));
+        self.find_adjacent_token(&pseudo_token, Some(token))
     }
 }
 

@@ -39,7 +39,7 @@ impl TangiblStartBuilder {
     ) -> &mut Self {
         self.flow_builder.with_conditional(Conditional {
             kind: conditional_kind,
-            alternate: alternate.map(|f| Box::new(f)),
+            alternate: alternate.map(Box::new),
         });
         self
     }
@@ -98,7 +98,7 @@ impl TangiblFlowBuilder {
         self.with_flow(Flow::new(FlowKind::BooleanMethod(BooleanMethod {
             kind: boolean_method_kind,
             condition,
-            body: body.map(|b| Box::new(b)),
+            body: body.map(Box::new),
         })));
         self
     }
@@ -112,7 +112,7 @@ impl TangiblFlowBuilder {
         self.with_flow(Flow::new(FlowKind::IntegerMethod(IntegerMethod {
             kind: integer_method_kind,
             value,
-            body: body.map(|b| Box::new(b)),
+            body: body.map(Box::new),
         })));
         self
     }
@@ -123,7 +123,7 @@ impl TangiblFlowBuilder {
             match current {
                 None => current = Some(node),
                 Some(_) => {
-                    node.next = current.map(|c| Box::new(c));
+                    node.next = current.map(Box::new);
                     current = Some(node);
                 }
             }
