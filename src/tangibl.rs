@@ -1,12 +1,15 @@
-use crate::ast::{
-    BooleanMethod, BooleanMethodKind, Command, Condition, Conditional, ConditionalKind, Flow,
-    FlowKind, IntegerMethod, IntegerMethodKind, Start, Value,
+use crate::{
+    ast::{
+        BooleanMethod, BooleanMethodKind, Command, Condition, Conditional, ConditionalKind, Flow,
+        FlowKind, IntegerMethod, IntegerMethodKind, Start, Value,
+    },
+    parser::Parser,
 };
 use std::collections::VecDeque;
 use topcodes::TopCode;
 
-pub fn parse(topcodes: Vec<TopCode>) -> Option<()> {
-    None
+pub fn parse(topcodes: Vec<TopCode>) -> Option<Start> {
+    Parser::new(&topcodes).parse()
 }
 
 pub fn start() -> TangiblStartBuilder {

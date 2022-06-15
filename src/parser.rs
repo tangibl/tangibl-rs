@@ -27,7 +27,7 @@ const TOPCODE_CENTER_X: f64 = 50.0;
 const TOPCODE_CENTER_Y: f64 = 38.0;
 /// The maximum displacement squared for a Token to be considered within an acceptable range of the previous
 /// token.
-const DISPLACEMENT_SQUARED_TOLERANCE: f64 = (TOPCODE_RADIUS * 1.5) * (TOPCODE_RADIUS * 1.5);
+const DISPLACEMENT_SQUARED_TOLERANCE: f64 = (TOPCODE_RADIUS * 2.5) * (TOPCODE_RADIUS * 2.5);
 /// The maximum angle deviation, in radians, from the expected angle of the previous token.
 const ANGLE_TOLERANCE: f64 = PI / 5.0;
 const TWO_PI: f64 = PI * 2.0;
@@ -58,7 +58,7 @@ lazy_static! {
         - TOPCODE_CENTER_X;
     static ref FALSE_TOKEN_Y: f64 = *FALSE_HYPOTENUSE
         * ((PI / 4.0) - (TOPCODE_CENTER_X / *FALSE_HYPOTENUSE).asin()).sin()
-        + (TOKEN_SIZE - TOPCODE_CENTER_Y);
+        - (TOKEN_SIZE - TOPCODE_CENTER_Y);
 }
 
 pub(crate) struct Parser {
@@ -69,22 +69,46 @@ impl Parser {
     pub fn new(topcodes: &Vec<TopCode>) -> Self {
         let mut tokens = Vec::with_capacity(topcodes.len());
 
+        let mut diameter_sum = 0.0;
         for topcode in topcodes {
             if let Some(code) = topcode.code {
                 if let Ok(token_code) = TokenCode::try_from(code) {
+                    diameter_sum += topcode.unit * 8.0;
+                    // Token orientation and y values are flipped so that they follow mathematical
+                    // convention instead of image convention. I may change this in future, but it
+                    // is only an internal representation which should not affect the contract of
+                    // the parser.
                     let token = Token::new(
                         token_code,
-                        topcode.unit * 8.0,
-                        topcode.orientation,
+                        0.0,
+                        Self::get_angle(-topcode.orientation),
                         topcode.x,
-                        topcode.y,
+                        -topcode.y,
                     );
                     tokens.push(token)
                 }
             }
         }
 
+        // Averaging out the diameter across all TopCodes to produce more accurate results.
+        //
+        // TODO: Remove outliers using a sample variance calculation to improve this value.
+        let diameter_avg = diameter_sum / tokens.len() as f64;
+        for token in &mut tokens {
+            token.diameter = diameter_avg;
+        }
+
         Self { tokens }
+    }
+
+    fn get_angle(mut angle: f64) -> f64 {
+        while angle > TWO_PI {
+            angle -= TWO_PI;
+        }
+        while angle < 0.0 {
+            angle += TWO_PI;
+        }
+        angle
     }
 
     pub fn parse(&self) -> Option<Start> {
@@ -107,6 +131,7 @@ impl Parser {
 
     fn parse_start(&self, start_token: Option<&Token>) -> Option<Start> {
         start_token.map(|token| {
+            log::debug!("Starting with first start token: {:?}", token);
             let next_token = self.find_adjacent_token(token, None);
             Start {
                 next: self.parse_flow(next_token),
@@ -242,9 +267,10 @@ impl Parser {
         token: &Token,
         predicate: &impl Fn(&Token) -> bool,
     ) -> Option<&Token> {
+        log::debug!("Trying to parse parameter from token: {:?}", token);
         let ratio = token.ratio(TOPCODE_DIAMETER);
         let distance = ratio * -TOKEN_SIZE;
-        let x = token.x + distance * token.orientation.sin();
+        let x = token.x + distance * -token.orientation.sin();
         let y = token.y + distance * token.orientation.cos();
         for candidate in &self.tokens {
             if token == candidate || !predicate(candidate) {
@@ -310,10 +336,16 @@ impl Parser {
     fn within_threshold(candidate: &Token, x: f64, y: f64, angle: f64) -> bool {
         let delta_displacement_squared = (candidate.x - x).powi(2) + (candidate.y - y).powi(2);
         let mut delta_angle = (candidate.orientation - angle) % TWO_PI;
+        if delta_angle < 0.0 {
+            delta_angle += TWO_PI;
+        }
         delta_angle = f64::min(delta_angle, TWO_PI - delta_angle);
         log::debug!(
-            "within_threshold: {{candidate: {:?}, delta_displacement_squared: {}, delta_angle: {}, evaluation: {}}}",
+            "within_threshold: {{\n  candidate: {:?}\n  expected_x: {}\n  expected_y: {}\n  expected_angle: {}\n  delta_displacement_squared: {}\n  delta_angle: {}\n  evaluation: {}\n}}",
             candidate,
+            x,
+            y,
+            angle,
             delta_displacement_squared,
             delta_angle,
             delta_displacement_squared < DISPLACEMENT_SQUARED_TOLERANCE && delta_angle < ANGLE_TOLERANCE
@@ -325,26 +357,28 @@ impl Parser {
     fn find_true_token(&self, token: &Token) -> Option<&Token> {
         log::debug!("Trying to find true token...");
         let ratio = token.ratio(TOPCODE_DIAMETER);
-        let angle = token.orientation + PI / 4.0; // 45 degrees counter-clockwise (with y-axis flipped)
+        let angle = token.orientation + PI / 4.0;
         let cos_angle = token.orientation.cos();
         let sin_angle = token.orientation.sin();
         let x = token.x + (*TRUE_TOKEN_X * cos_angle - *TRUE_TOKEN_Y * sin_angle) * ratio;
         let y = token.y + (*TRUE_TOKEN_X * sin_angle + *TRUE_TOKEN_Y * cos_angle) * ratio;
         // Create an artificial to find the next flow token
         let pseudo_token = Token::new(TokenCode::Undefined, token.diameter, angle, x, y);
+        log::debug!("Pseudo true token: {:?}", pseudo_token);
         return self.find_adjacent_token(&pseudo_token, Some(token));
     }
 
     fn find_false_token(&self, token: &Token) -> Option<&Token> {
         log::debug!("Trying to find false token...");
         let ratio = token.ratio(TOPCODE_DIAMETER);
-        let angle = token.orientation - PI / 4.0; // 45 degrees clockwise (with y-axis flipped)
+        let angle = token.orientation - PI / 4.0;
         let cos_angle = token.orientation.cos();
         let sin_angle = token.orientation.sin();
         let x = token.x + (*FALSE_TOKEN_X * cos_angle - *FALSE_TOKEN_Y * sin_angle) * ratio;
         let y = token.y + (*FALSE_TOKEN_X * sin_angle + *FALSE_TOKEN_Y * cos_angle) * ratio;
         // Create an artificial to find the next flow token
         let pseudo_token = Token::new(TokenCode::Undefined, token.diameter, angle, x, y);
+        log::debug!("Pseudo false token: {:?}", pseudo_token);
         return self.find_adjacent_token(&pseudo_token, Some(token));
     }
 }
@@ -388,21 +422,21 @@ mod tests {
         // This is essentially a fuzz test as there are a few missing unit tests above. This covers
         // quite a complex (although semantically nonsense) Tangibl AST.
         let topcodes = vec![
-            TopCode::mock(61, 12.375, -5.244043121761424, 237.5, 165.16666666666666),
-            TopCode::mock(79, 14.30625, -5.244043121761424, 336.3333333333333, 363.5),
-            TopCode::mock(31, 12.15, -5.244043121761424, 431.0, 562.0),
-            TopCode::mock(47, 12.2625, -2.827433388230814, 937.8333333333334, 377.5),
-            TopCode::mock(91, 12.94375, -1.232470964100611, 1140.5, 436.0),
-            TopCode::mock(115, 14.175, -1.2808031587712234, 1345.5, 519.5),
-            TopCode::mock(59, 12.70625, -1.2808031587712234, 1052.5, 641.6666666666666),
-            TopCode::mock(55, 13.9125, -5.920693847149995, 801.5, 754.8333333333334),
-            TopCode::mock(91, 13.9125, -5.969026041820606, 999.0, 838.0),
-            TopCode::mock(167, 12.46875, -4.4223958123610165, 134.5, 912.8333333333334),
-            TopCode::mock(87, 12.15, -5.969026041820606, 1201.6666666666667, 916.0),
-            TopCode::mock(155, 13.125, -4.4223958123610165, 336.8333333333333, 979.5),
-            TopCode::mock(47, 12.35, -5.969026041820606, 538.0, 1031.5),
-            TopCode::mock(117, 13.25, -5.969026041820606, 917.6666666666666, 1035.5),
-            TopCode::mock(87, 11.8125, -4.47, 275.33, 1177.33),
+            TopCode::mock(61, 12.375, -5.244, 237.5, 165.166),
+            TopCode::mock(79, 14.306, -5.244, 336.333, 363.5),
+            TopCode::mock(31, 12.15, -5.244, 431.0, 562.0),
+            TopCode::mock(47, 12.262, -2.827, 937.833, 377.5),
+            TopCode::mock(91, 12.943, -1.232, 1140.5, 436.0),
+            TopCode::mock(115, 14.175, -1.280, 1345.5, 519.5),
+            TopCode::mock(59, 12.706, -1.280, 1052.5, 641.666),
+            TopCode::mock(55, 13.912, -5.920, 801.5, 754.833),
+            TopCode::mock(91, 13.912, -5.969, 999.0, 838.0),
+            TopCode::mock(167, 12.468, -4.422, 134.5, 912.833),
+            TopCode::mock(87, 12.15, -5.969, 1201.666, 916.0),
+            TopCode::mock(155, 13.125, -4.422, 336.833, 979.5),
+            TopCode::mock(47, 12.35, -5.969, 538.0, 1031.5),
+            TopCode::mock(117, 13.25, -5.969, 917.666, 1035.5),
+            TopCode::mock(87, 11.812, -4.47, 275.33, 1177.33),
         ];
 
         let parser = Parser::new(&topcodes);
@@ -419,11 +453,14 @@ mod tests {
                                     kind: BooleanMethodKind::While,
                                     condition: Some(Condition::IsPathClear),
                                     body: Some(Box::new(Flow {
-                                        kind: FlowKind::Command(Command::TurnRight),
+                                        kind: FlowKind::Command(Command::MoveBackwards),
                                         next: None
                                     }))
                                 }),
-                                next: None
+                                next: Some(Box::new(Flow {
+                                    kind: FlowKind::Command(Command::TurnRight),
+                                    next: None,
+                                }))
                             }))
                         }),
                         next: Some(Box::new(Flow {
