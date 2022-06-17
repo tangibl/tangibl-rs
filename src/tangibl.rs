@@ -8,8 +8,8 @@ use crate::{
 use std::collections::VecDeque;
 use topcodes::TopCode;
 
-pub fn parse(topcodes: Vec<TopCode>) -> Option<Start> {
-    Parser::new(&topcodes).parse()
+pub fn parse(topcodes: &Vec<TopCode>) -> Option<Start> {
+    Parser::new(topcodes).parse()
 }
 
 pub fn start() -> TangiblStartBuilder {
