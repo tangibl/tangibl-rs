@@ -25,7 +25,8 @@ println!("{}", json_printer.print(&ast));
 ```
 
 The library additionally contains a JSON printer and a visitor abstraction for
-performing actions based on the shape of the AST.
+performing actions based on the shape of the AST. Click [here](docs/grammar.md)
+for an overview of the Tangibl grammar.
 
 ### Motivation for enum use in visitor
 
