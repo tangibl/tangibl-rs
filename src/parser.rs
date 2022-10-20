@@ -150,7 +150,7 @@ impl Parser {
             TokenCode::Blocked => self.parse_conditional(token),
             TokenCode::While => self.parse_boolean_method(token),
             TokenCode::Repeat => self.parse_integer_method(token),
-            _ => todo!(),
+            _ => panic!("Received a flow token that has not been modelled"),
         })
     }
 
