@@ -1,6 +1,6 @@
 # Tangibl
 
-[![Build](https://github.com/battesonb/tangibl-rs/actions/workflows/build.yml/badge.svg)](https://github.com/battesonb/tangibl-rs/actions/workflows/build.yml)
+[![Build](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml/badge.svg)](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml)
 
 This is the core Tangibl library. This source was originally written in Java,
 but has been rewritten in Rust to allow the generation of a dynamic C library,

@@ -7,7 +7,7 @@ exclude = [
 ]
 
 [dependencies]
-topcodes = { version = "*", git = "https://github.com/battesonb/topcodes-rs" }
+topcodes = { version = "*", git = "https://github.com/tangibl/topcodes-rs" }
 serde = { version = "1.0.137", features = [] }
 serde_json = "1.0.81"
 num_enum = "0.5.7"

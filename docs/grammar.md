@@ -1,8 +1,7 @@
 # Grammar
 
-The following is an Extended Backus–Naur form (EBNF) definition of the Tangibl grammar.
-Token codes can be found in the [source
-code](https://github.com/battesonb/tangibl-rs/blob/main/src/tokens.rs). These
+The following is an Extended Backus–Naur form (EBNF) definition of the Tangibl
+grammar. Token codes can be found in the [source code](/src/tokens.rs). These
 would map to the TopCode identifiers. For a full list of potential TopCodes, see
 the [TIDAL-Lab TopCodes
 repository](https://github.com/TIDAL-Lab/TopCodes#valid-topcodes). Any additions
