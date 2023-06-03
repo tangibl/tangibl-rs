@@ -1,8 +1,10 @@
 [package]
 name = "tangibl"
+description = "A parser for generating an AST from a set of predefined TopCodes"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-2.0"
+repository = "https://github.com/tangibl/tangibl-rs"
 exclude = [
   ".github",
   "assets/",
