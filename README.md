@@ -2,6 +2,8 @@
 
 [![Build](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml/badge.svg)](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml)
 
+**This project is still in development, things are likely to be broken.**
+
 This is the core Tangibl library. This source was originally written in Java,
 but has been rewritten in Rust to allow the generation of a dynamic C library,
 WASM etc.
