@@ -1,6 +1,7 @@
 # Tangibl
 
 [![Build](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml/badge.svg)](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml)
+![Crates.io](https://img.shields.io/crates/v/tangibl)
 
 **This project is still in development, things are likely to be broken.**
 
