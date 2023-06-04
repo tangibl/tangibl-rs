@@ -1,13 +1,13 @@
 # Tangibl
 
 [![Build](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml/badge.svg)](https://github.com/tangibl/tangibl-rs/actions/workflows/build.yml)
-![Crates.io](https://img.shields.io/crates/v/tangibl)
+[![Crates.io](https://img.shields.io/crates/v/tangibl)](https://crates.io/crates/tangibl)
 
 **This project is still in development, things are likely to be broken.**
 
 This is the core Tangibl library. This source was originally written in Java,
 but has been rewritten in Rust to allow the generation of a dynamic C library,
-WASM etc.
+[WASM](https://github.com/tangibl/tangibl-wasm-rs) etc.
 
 ## Example
 
