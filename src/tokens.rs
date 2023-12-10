@@ -1,5 +1,6 @@
 #[cfg(test)]
 use enum_iterator::Sequence;
+use glam::Vec3;
 use num_enum::TryFromPrimitive;
 
 #[cfg_attr(test, derive(Sequence))]
@@ -50,20 +51,18 @@ impl TokenCode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Token {
     pub code: TokenCode,
-    pub diameter: f64,
-    pub orientation: f64,
-    pub x: f64,
-    pub y: f64,
+    pub diameter: f32,
+    pub orientation: f32,
+    pub position: Vec3,
 }
 
 impl Token {
-    pub fn new(code: TokenCode, diameter: f64, orientation: f64, x: f64, y: f64) -> Self {
+    pub fn new(code: TokenCode, diameter: f32, orientation: f32, x: f32, y: f32) -> Self {
         Self {
             code,
             diameter,
             orientation,
-            x,
-            y,
+            position: Vec3::new(x, y, 1.0),
         }
     }
 
@@ -115,7 +114,7 @@ impl Token {
     }
 
     /// The ratio of the current token to the expected diameter.
-    pub fn ratio(&self, diameter: f64) -> f64 {
+    pub fn ratio(&self, diameter: f32) -> f32 {
         self.diameter / diameter
     }
 }

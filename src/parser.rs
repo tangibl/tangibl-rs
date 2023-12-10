@@ -1,5 +1,6 @@
-use std::f64::{self, consts::PI};
+use std::f32::consts::PI;
 
+use glam::{Mat3, Vec2, Vec3};
 use lazy_static::lazy_static;
 use topcodes::TopCode;
 
@@ -16,49 +17,57 @@ use crate::{
 
 /// An arbitrarily chosen value such that all the following values are in ratio. The original
 /// Tangibl tokens were designed in pixels with these measurements.
-const TOKEN_SIZE: f64 = 100.0;
+const TOKEN_SIZE: f32 = 100.0;
 /// The radius of the actual TopCode circle.
-const TOPCODE_RADIUS: f64 = 24.0;
+const TOPCODE_RADIUS: f32 = 24.0;
 /// The diameter of the actual TopCode circle.
-const TOPCODE_DIAMETER: f64 = TOPCODE_RADIUS * 2.0;
+const TOPCODE_DIAMETER: f32 = TOPCODE_RADIUS * 2.0;
 /// The TopCode horizontal offset.
-const TOPCODE_CENTER_X: f64 = 50.0;
+const TOPCODE_CENTER_X: f32 = 50.0;
 /// The TopCode vertical offset. It is actually at 62, but counting from the other side is convenient for the trig.
-const TOPCODE_CENTER_Y: f64 = 38.0;
+const TOPCODE_CENTER_Y: f32 = 38.0;
 /// The maximum displacement squared for a Token to be considered within an acceptable range of the previous
 /// token.
-const DISPLACEMENT_SQUARED_TOLERANCE: f64 = (TOPCODE_RADIUS * 2.5) * (TOPCODE_RADIUS * 2.5);
+const DISPLACEMENT_SQUARED_TOLERANCE: f32 = (TOPCODE_RADIUS * 2.5) * (TOPCODE_RADIUS * 2.5);
 /// The maximum angle deviation, in radians, from the expected angle of the previous token.
-const ANGLE_TOLERANCE: f64 = PI / 5.0;
-const TWO_PI: f64 = PI * 2.0;
+const ANGLE_TOLERANCE: f32 = PI / 5.0;
+const TWO_PI: f32 = PI * 2.0;
+const HALF_PI: f32 = PI / 2.0;
+const QUARTER_PI: f32 = PI / 4.0;
+const TOPCODE_DISPLACEMENT_FROM_CENTER: f32 = 12.0;
 
 // The following are pre-calculated helper values for working with the conditional token, as it has
 // a more complicated form-factor compared to the other Tangibl tokens.
 /// The point at which the 'true' and 'false' paths of conditional Tokens are closest in distance
 /// while still maintaining the same angle.
-const CONDITIONAL_INTERSECTION: f64 = 65.0;
+const CONDITIONAL_INTERSECTION: f32 = 65.0;
 // Additionally, consts cannot be used until the following issue is resolved in the Rust standard
 // library (Since floats behave differently on many platforms):
 //
 // https://github.com/rust-Lang/rust/issues/57241
 lazy_static! {
-    static ref TRUE_HYPOTENUSE: f64 = (TOPCODE_CENTER_X.powi(2) + TOPCODE_CENTER_Y.powi(2)).sqrt();
-    static ref TRUE_TOKEN_X: f64 = *TRUE_HYPOTENUSE
+    static ref TRUE_HYPOTENUSE: f32 = (TOPCODE_CENTER_X.powi(2) + TOPCODE_CENTER_Y.powi(2)).sqrt();
+    static ref TRUE_TOKEN_X: f32 = *TRUE_HYPOTENUSE
         * ((PI / 4.0) - (TOPCODE_CENTER_Y / *TRUE_HYPOTENUSE).asin()).cos()
         + CONDITIONAL_INTERSECTION
         - TOPCODE_CENTER_X;
-    static ref TRUE_TOKEN_Y: f64 = *TRUE_HYPOTENUSE
+    static ref TRUE_TOKEN_Y: f32 = *TRUE_HYPOTENUSE
         * ((PI / 4.0) - (TOPCODE_CENTER_Y / *TRUE_HYPOTENUSE).asin()).sin()
         + TOPCODE_CENTER_Y;
-    static ref FALSE_HYPOTENUSE: f64 =
+    static ref TRUE_TOKEN_DISPLACEMENT: f32 = (TRUE_TOKEN_X.powi(2) + TRUE_TOKEN_Y.powi(2)).sqrt();
+    static ref TRUE_TOKEN_ANGLE: f32 = TRUE_TOKEN_Y.atan2(*TRUE_TOKEN_X);
+    static ref FALSE_HYPOTENUSE: f32 =
         (TOPCODE_CENTER_X.powi(2) + (TOKEN_SIZE - TOPCODE_CENTER_Y).powi(2)).sqrt();
-    static ref FALSE_TOKEN_X: f64 = *FALSE_HYPOTENUSE
+    static ref FALSE_TOKEN_X: f32 = *FALSE_HYPOTENUSE
         * ((PI / 4.0) - (TOPCODE_CENTER_X / *FALSE_HYPOTENUSE).asin()).cos()
         + CONDITIONAL_INTERSECTION
         - TOPCODE_CENTER_X;
-    static ref FALSE_TOKEN_Y: f64 = *FALSE_HYPOTENUSE
+    static ref FALSE_TOKEN_Y: f32 = *FALSE_HYPOTENUSE
         * ((PI / 4.0) - (TOPCODE_CENTER_X / *FALSE_HYPOTENUSE).asin()).sin()
         - (TOKEN_SIZE - TOPCODE_CENTER_Y);
+    static ref FALSE_TOKEN_DISPLACEMENT: f32 =
+        (FALSE_TOKEN_X.powi(2) + FALSE_TOKEN_Y.powi(2)).sqrt();
+    static ref FALSE_TOKEN_ANGLE: f32 = FALSE_TOKEN_Y.atan2(*FALSE_TOKEN_X);
 }
 
 pub(crate) struct Parser {
@@ -81,9 +90,9 @@ impl Parser {
                     let token = Token::new(
                         token_code,
                         0.0,
-                        Self::get_angle(-topcode.orientation),
-                        topcode.x,
-                        -topcode.y,
+                        Self::get_angle(-topcode.orientation as f32),
+                        topcode.x as f32,
+                        -topcode.y as f32,
                     );
                     tokens.push(token)
                 }
@@ -93,7 +102,7 @@ impl Parser {
         // Averaging out the diameter across all TopCodes to produce more accurate results.
         //
         // TODO: Remove outliers using a sample variance calculation to improve this value.
-        let diameter_avg = diameter_sum / tokens.len() as f64;
+        let diameter_avg = diameter_sum as f32 / tokens.len() as f32;
         for token in &mut tokens {
             token.diameter = diameter_avg;
         }
@@ -101,7 +110,7 @@ impl Parser {
         Self { tokens }
     }
 
-    fn get_angle(mut angle: f64) -> f64 {
+    fn get_angle(mut angle: f32) -> f32 {
         while angle > TWO_PI {
             angle -= TWO_PI;
         }
@@ -269,9 +278,12 @@ impl Parser {
     ) -> Option<&Token> {
         log::debug!("Trying to parse parameter from token: {:?}", token);
         let ratio = token.ratio(TOPCODE_DIAMETER);
-        let distance = ratio * -TOKEN_SIZE;
-        let x = token.x + distance * -token.orientation.sin();
-        let y = token.y + distance * token.orientation.cos();
+        let displacement = ratio * TOKEN_SIZE;
+        let offset = Mat3::from_angle(token.orientation)
+            * Mat3::from_translation(Vec2::new(0.0, -displacement))
+            * Vec3::new(0.0, 0.0, 1.0);
+        let x = token.position.x + offset.x;
+        let y = token.position.y + offset.y;
         for candidate in &self.tokens {
             if token == candidate || !predicate(candidate) {
                 continue;
@@ -286,13 +298,16 @@ impl Parser {
 
     fn find_method_body_token(&self, token: &Token) -> Option<&Token> {
         let ratio = token.ratio(TOPCODE_DIAMETER);
-        let angle = token.orientation + PI / 2.0;
-        let x_delta = -(TOPCODE_CENTER_X - TOPCODE_CENTER_Y);
-        let y_delta = TOKEN_SIZE + x_delta;
-        let cos_angle = token.orientation.cos();
-        let sin_angle = token.orientation.sin();
-        let x = token.x + (x_delta * cos_angle - y_delta * sin_angle) * ratio;
-        let y = token.y + (x_delta * sin_angle + y_delta * cos_angle) * ratio;
+        let displacement = ratio * TOKEN_SIZE;
+        let displacement_from_center = ratio * TOPCODE_DISPLACEMENT_FROM_CENTER;
+        let offset = Mat3::from_angle(token.orientation)
+            * Mat3::from_translation(Vec2::new(0.0, displacement))
+            * Mat3::from_angle(HALF_PI)
+            * Mat3::from_translation(Vec2::new(0.0, displacement_from_center))
+            * Vec3::new(0.0, 0.0, 1.0);
+        let x = token.position.x + offset.x;
+        let y = token.position.y + offset.y;
+        let angle = token.orientation + HALF_PI;
 
         for candidate in &self.tokens {
             if token == candidate || !candidate.is_flow() {
@@ -310,9 +325,10 @@ impl Parser {
     /// Given a flow token, find the token which is adjacent to it.
     fn find_adjacent_token(&self, token: &Token, parent: Option<&Token>) -> Option<&Token> {
         let ratio = token.ratio(TOPCODE_DIAMETER);
-        let distance = ratio * TOKEN_SIZE;
-        let x = token.x + (distance * token.orientation.cos());
-        let y = token.y + (distance * token.orientation.sin());
+        let displacement = ratio * TOKEN_SIZE;
+        let offset = Mat3::from_angle(token.orientation) * Vec3::new(displacement, 0.0, 1.0);
+        let x = offset.x + token.position.x;
+        let y = offset.y + token.position.y;
 
         for candidate in &self.tokens {
             if candidate == token || !candidate.is_flow() {
@@ -333,14 +349,15 @@ impl Parser {
         None
     }
 
-    fn within_threshold(candidate: &Token, x: f64, y: f64, angle: f64) -> bool {
-        let delta_displacement_squared = (candidate.x - x).powi(2) + (candidate.y - y).powi(2);
+    fn within_threshold(candidate: &Token, x: f32, y: f32, angle: f32) -> bool {
+        let delta_displacement_squared =
+            (candidate.position.x - x).powi(2) + (candidate.position.y - y).powi(2);
         let mut delta_angle = (candidate.orientation - angle) % TWO_PI;
         if delta_angle < 0.0 {
             delta_angle += TWO_PI;
         }
-        delta_angle = f64::min(delta_angle, TWO_PI - delta_angle);
-        log::debug!(
+        delta_angle = delta_angle.min(TWO_PI - delta_angle);
+        log::trace!(
             "within_threshold: {{\n  candidate: {:?}\n  expected_x: {}\n  expected_y: {}\n  expected_angle: {}\n  delta_displacement_squared: {}\n  delta_angle: {}\n  evaluation: {}\n}}",
             candidate,
             x,
@@ -357,12 +374,14 @@ impl Parser {
     fn find_true_token(&self, token: &Token) -> Option<&Token> {
         log::debug!("Trying to find true token...");
         let ratio = token.ratio(TOPCODE_DIAMETER);
-        let angle = token.orientation + PI / 4.0;
-        let cos_angle = token.orientation.cos();
-        let sin_angle = token.orientation.sin();
-        let x = token.x + (*TRUE_TOKEN_X * cos_angle - *TRUE_TOKEN_Y * sin_angle) * ratio;
-        let y = token.y + (*TRUE_TOKEN_X * sin_angle + *TRUE_TOKEN_Y * cos_angle) * ratio;
-        // Create an artificial to find the next flow token
+        let angle = token.orientation + *TRUE_TOKEN_ANGLE;
+        let offset = Mat3::from_angle(angle)
+            * Mat3::from_translation(Vec2::new(ratio * *TRUE_TOKEN_DISPLACEMENT, 0.0))
+            * Vec3::new(0.0, 0.0, 1.0);
+        let x = token.position.x + offset.x;
+        let y = token.position.y + offset.y;
+
+        // Create an artificial token to find the next flow token
         let pseudo_token = Token::new(TokenCode::Undefined, token.diameter, angle, x, y);
         log::debug!("Pseudo true token: {:?}", pseudo_token);
         self.find_adjacent_token(&pseudo_token, Some(token))
@@ -371,11 +390,13 @@ impl Parser {
     fn find_false_token(&self, token: &Token) -> Option<&Token> {
         log::debug!("Trying to find false token...");
         let ratio = token.ratio(TOPCODE_DIAMETER);
-        let angle = token.orientation - PI / 4.0;
-        let cos_angle = token.orientation.cos();
-        let sin_angle = token.orientation.sin();
-        let x = token.x + (*FALSE_TOKEN_X * cos_angle - *FALSE_TOKEN_Y * sin_angle) * ratio;
-        let y = token.y + (*FALSE_TOKEN_X * sin_angle + *FALSE_TOKEN_Y * cos_angle) * ratio;
+        let angle = token.orientation + *FALSE_TOKEN_ANGLE;
+        let offset = Mat3::from_angle(angle)
+            * Mat3::from_translation(Vec2::new(ratio * *FALSE_TOKEN_DISPLACEMENT, 0.0))
+            * Vec3::new(0.0, 0.0, 1.0);
+        let x = token.position.x + offset.x;
+        let y = token.position.y + offset.y;
+
         // Create an artificial to find the next flow token
         let pseudo_token = Token::new(TokenCode::Undefined, token.diameter, angle, x, y);
         log::debug!("Pseudo false token: {:?}", pseudo_token);
