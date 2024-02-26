@@ -21,4 +21,4 @@ serde_json = "1.0.96"
 topcodes = "0.1.0"
 
 [dev-dependencies]
-enum-iterator = "1.4.1"
+enum-iterator = "2.0.0"
